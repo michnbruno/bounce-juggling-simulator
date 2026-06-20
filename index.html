@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bounce juggling simulator — Mike Bruno</title>
+<meta name="description" content="A real-physics bounce juggling simulator built with Claude.ai, showing the learning path from one ball up to nine.">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #faf9f6;
+    color: #2C2C2A;
+    margin: 0;
+    padding: 0;
+  }
+  .wrap { max-width: 800px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+  header { text-align: center; margin-bottom: 1.5rem; }
+  header h1 { font-size: 22px; font-weight: 600; margin: 0 0 6px; }
+  header p { font-size: 14px; color: #5F5E5A; margin: 0; max-width: 560px; margin-left: auto; margin-right: auto; line-height: 1.5; }
+  .backlink { text-align: center; margin-bottom: 1.5rem; }
+  .backlink a { font-size: 13px; color: #185FA5; text-decoration: none; }
+  .backlink a:hover { text-decoration: underline; }
+
+  button { background: #fff; border: 0.5px solid #B4B2A9; padding: 6px 14px; border-radius: 8px; font-size: 13px; cursor: pointer; color: #2C2C2A; }
+  button:hover { background: #f1efe8; }
+  .ballBtn { border: none; background: transparent; padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; color: #5F5E5A; }
+
+  .footer-note { text-align: center; font-size: 12px; color: #888780; line-height: 1.7; margin-top: 2.5rem; padding-top: 1.5rem; border-top: 0.5px solid #D3D1C7; }
+  .footer-note a { color: #185FA5; text-decoration: none; }
+  .footer-note a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="backlink"><a href="https://world-gone-mad-juggling.com">&larr; world-gone-mad-juggling.com</a></div>
+
+  <header>
+    <h1>Bounce juggling simulator</h1>
+    <p>Simulation built with Claude.ai. See the learning path for bounce juggling, going from a single ball up to nine.</p>
+  </header>
+
+<div style="display:flex; justify-content:center; margin-bottom:8px;">
+  <div style="display:inline-flex; background:#f1efe8; border-radius:12px; padding:4px; gap:2px;">
+    <button class="ballBtn" data-n="1">1</button>
+    <button class="ballBtn" data-n="2">2</button>
+    <button class="ballBtn" data-n="3">3</button>
+    <button class="ballBtn" data-n="5">5</button>
+    <button class="ballBtn" data-n="7">7</button>
+    <button class="ballBtn" data-n="9">9</button>
+  </div>
+</div>
+<p style="text-align:center; font-size:11px; color:#888780; margin:0 0 12px;">number of balls</p>
+
+<div style="display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:1rem; flex-wrap:wrap;">
+  <button id="bPlay" style="background:#E6F1FB; border-color:#85B7EB; color:#0C447C;">Pause</button>
+  <button id="bTrails">Hide trails</button>
+</div>
+
+<div style="display:flex; justify-content:center; margin-bottom:1rem;">
+  <canvas id="c" width="640" height="420" style="border-radius:12px; border:0.5px solid #D3D1C7; max-width:100%; height:auto;"></canvas>
+</div>
+
+<div style="display:flex; justify-content:center; gap:18px; margin-bottom:0.5rem; font-size:13px; color:#5F5E5A; flex-wrap:wrap;">
+  <span>L angle: <b id="lAngleOut" style="color:#2C2C2A; font-weight:600;">–</b></span>
+  <span>R angle: <b id="rAngleOut" style="color:#2C2C2A; font-weight:600;">–</b></span>
+  <span>L apex: <b id="lApexOut" style="color:#2C2C2A; font-weight:600;">–</b></span>
+  <span>R apex: <b id="rApexOut" style="color:#2C2C2A; font-weight:600;">–</b></span>
+</div>
+<div style="display:flex; justify-content:center; gap:18px; margin-bottom:0.5rem; font-size:13px; color:#5F5E5A; flex-wrap:wrap;">
+  <span>Crossing X: <b id="crossXOut" style="color:#2C2C2A; font-weight:600;">center</b></span>
+  <span>Crossing drop: <b id="crossYOut" style="color:#2C2C2A; font-weight:600;">–</b></span>
+</div>
+<div id="warnBox" style="display:none; text-align:center; font-size:12px; color:#854F0B; background:#FAEEDA; border-radius:8px; padding:8px 14px; max-width:440px; margin:0 auto 1rem;"></div>
+
+<p style="text-align:center; font-size:12px; color:#888780; text-transform:uppercase; letter-spacing:0.05em; margin:1rem 0 8px;">Symmetric foundation</p>
+<div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; max-width:560px; margin:0 auto;">
+  <div style="background:#f1efe8; border-radius:8px; padding:0.75rem 1rem;">
+    <label style="font-size:13px; color:#5F5E5A; display:block; margin-bottom:6px;">Launch speed</label>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <input type="range" id="speed" min="330" max="520" step="5" value="390" style="flex:1;">
+      <span id="speedOut" style="font-size:13px; min-width:32px; text-align:right;">390</span>
+    </div>
+  </div>
+  <div style="background:#f1efe8; border-radius:8px; padding:0.75rem 1rem;">
+    <label style="font-size:13px; color:#5F5E5A; display:block; margin-bottom:6px;">Base reach (each hand)</label>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <input type="range" id="baseReach" min="60" max="130" step="2" value="95" style="flex:1;">
+      <span id="baseReachOut" style="font-size:13px; min-width:32px; text-align:right;">95</span>
+    </div>
+  </div>
+  <div style="background:#f1efe8; border-radius:8px; padding:0.75rem 1rem;">
+    <label style="font-size:13px; color:#5F5E5A; display:block; margin-bottom:6px;">Restitution</label>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <input type="range" id="restitution" min="60" max="100" step="1" value="90" style="flex:1;">
+      <span id="restitutionOut" style="font-size:13px; min-width:32px; text-align:right;">90%</span>
+    </div>
+  </div>
+</div>
+
+<details style="max-width:560px; margin:1.25rem auto 0;">
+  <summary style="text-align:center; font-size:12px; color:#888780; text-transform:uppercase; letter-spacing:0.05em; cursor:pointer; list-style:none; margin-bottom:8px;">Custom asymmetry &#9656;</summary>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+    <div style="background:#f1efe8; border-radius:8px; padding:0.75rem 1rem;">
+      <label style="font-size:13px; color:#5F5E5A; display:block; margin-bottom:6px;">Left arm: pull in tighter</label>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <input type="range" id="lxIn" min="0" max="35" step="2" value="0" style="flex:1;">
+        <span id="lxInOut" style="font-size:13px; min-width:32px; text-align:right;">0</span>
+      </div>
+    </div>
+    <div style="background:#f1efe8; border-radius:8px; padding:0.75rem 1rem;">
+      <label style="font-size:13px; color:#5F5E5A; display:block; margin-bottom:6px;">Right arm: extend further</label>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <input type="range" id="rxOut" min="0" max="35" step="2" value="0" style="flex:1;">
+        <span id="rxOutOut" style="font-size:13px; min-width:32px; text-align:right;">0</span>
+      </div>
+    </div>
+    <div style="background:#f1efe8; border-radius:8px; padding:0.75rem 1rem; grid-column: 1 / -1;">
+      <label style="font-size:13px; color:#5F5E5A; display:block; margin-bottom:6px;">Right hand: drop lower</label>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <input type="range" id="ryDrop" min="0" max="40" step="2" value="0" style="flex:1;">
+        <span id="ryDropOut" style="font-size:13px; min-width:32px; text-align:right;">0</span>
+      </div>
+    </div>
+  </div>
+</details>
+
+<div class="footer-note">
+  <p>Built collaboratively with Claude (Anthropic) — code and physics verification at <a href="https://github.com/michnbruno/bounce-juggling-simulator">github.com/michnbruno/bounce-juggling-simulator</a>.</p>
+  <p>Standing on the work of the juggling and mathematics communities who built siteswap notation and the simulators that animate it — including Paul Klimek, the Caltech and Cambridge groups who formalized siteswap, Allen Knutson's original 1988 animator, and Jack Boyce's <a href="https://jugglinglab.org">Juggling Lab</a>, today's standard reference tool.</p>
+</div>
+
+</div>
+
+<script>
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+const W = cv.width, H = cv.height;
+const FLOOR = H - 50;
+const CX = W / 2;
+const HAND_Y = FLOOR - 230;
+const SHOULDER_Y = HAND_Y - 60;
+
+const colBlue = '#378ADD';
+const colCoral = '#D85A30';
+const colGray = '#888780';
+const colGrayLine = '#D3D1C7';
+const colCross = '#2C2C2A';
+
+const state = {
+  playing: true, numBalls: 3, showTrails: true,
+  speed: 390, baseReach: 95, restitution: 90,
+  lxIn: 0, rxOut: 0, ryDrop: 0
+};
+
+function refreshBallButtons() {
+  document.querySelectorAll('.ballBtn').forEach(btn => {
+    const n = parseInt(btn.dataset.n);
+    if (n === state.numBalls) {
+      btn.style.background = '#fff';
+      btn.style.color = '#2C2C2A';
+      btn.style.fontWeight = '600';
+      btn.style.boxShadow = '0 0 0 0.5px #B4B2A9';
+    } else {
+      btn.style.background = 'transparent';
+      btn.style.color = '#5F5E5A';
+      btn.style.fontWeight = '400';
+      btn.style.boxShadow = 'none';
+    }
+  });
+}
+document.querySelectorAll('.ballBtn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    state.numBalls = parseInt(this.dataset.n);
+    refreshBallButtons();
+    balls = null;
+  });
+});
+refreshBallButtons();
+
+document.getElementById('bPlay').addEventListener('click', function() {
+  state.playing = !state.playing;
+  this.textContent = state.playing ? 'Pause' : 'Play';
+  this.style.background = state.playing ? '#E6F1FB' : '#fff';
+  this.style.borderColor = state.playing ? '#85B7EB' : '#B4B2A9';
+  this.style.color = state.playing ? '#0C447C' : '#2C2C2A';
+});
+document.getElementById('bTrails').addEventListener('click', function() {
+  state.showTrails = !state.showTrails;
+  this.textContent = state.showTrails ? 'Hide trails' : 'Show trails';
+});
+
+['speed','baseReach','restitution','lxIn','rxOut','ryDrop'].forEach(id => {
+  const el = document.getElementById(id);
+  const out = document.getElementById(id+'Out');
+  el.addEventListener('input', function() {
+    state[id] = parseFloat(this.value);
+    out.textContent = this.value + (id==='restitution' ? '%' : '');
+    balls = null;
+  });
+});
+
+function evaluateTrajectory(speed, angleDeg, fromY, toY, restitutionFrac, g) {
+  const angleRad = angleDeg * Math.PI/180;
+  const vx = speed * Math.cos(angleRad);
+  const vy0 = -speed * Math.sin(angleRad);
+  const dy1 = FLOOR - fromY;
+  const a1 = 0.5*g, b1 = vy0, c1 = -dy1;
+  const disc1 = b1*b1 - 4*a1*c1;
+  if (disc1 < 0) return null;
+  const tImpact = (-b1 + Math.sqrt(disc1)) / (2*a1);
+  const vyAtImpact = vy0 + g*tImpact;
+  const vyBounce = -vyAtImpact * restitutionFrac;
+  const dy2 = toY - FLOOR;
+  const a2 = 0.5*g, b2 = vyBounce, c2 = -dy2;
+  const disc2 = b2*b2 - 4*a2*c2;
+  if (disc2 < 0) return null;
+  const tCatch = (-b2 + Math.sqrt(disc2)) / (2*a2);
+  const totalDist = vx * (tImpact + tCatch);
+  const apexHeight = (vy0*vy0)/(2*g);
+  return { totalDist, tImpact, tCatch, apexHeight, vx, vy0 };
+}
+
+function solveAngleForSpeed(speed, targetDist, fromY, toY, restitutionFrac, g) {
+  let prevA = null, prevDist = null, foundAngle = null;
+  for (let a = 30; a <= 85; a += 0.5) {
+    const r = evaluateTrajectory(speed, a, fromY, toY, restitutionFrac, g);
+    if (!r) continue;
+    if (prevDist !== null) {
+      if ((prevDist - targetDist) * (r.totalDist - targetDist) <= 0) {
+        let lo = prevA, hi = a;
+        for (let iter=0; iter<50; iter++) {
+          const mid = (lo+hi)/2;
+          const rm = evaluateTrajectory(speed, mid, fromY, toY, restitutionFrac, g);
+          if (!rm) { lo = mid; continue; }
+          if (rm.totalDist > targetDist) lo = mid; else hi = mid;
+        }
+        foundAngle = (lo+hi)/2;
+        break;
+      }
+    }
+    prevA = a; prevDist = r.totalDist;
+  }
+  return foundAngle;
+}
+
+function throwPoints(fromHand, angle, speed, dir, tImpact) {
+  const angleRad = angle*Math.PI/180;
+  const vx0 = speed*Math.cos(angleRad)*dir;
+  const vy0 = -speed*Math.sin(angleRad);
+  const pts = [];
+  for (let i=0;i<=50;i++) {
+    const t = (i/50)*tImpact;
+    pts.push({x: fromHand.x+vx0*t, y: fromHand.y+vy0*t+0.5*980*t*t});
+  }
+  return pts;
+}
+
+function findCrossing(lHand, rHand, angleL, angleR, trajL, trajR, speed) {
+  const ptsL = throwPoints(lHand, angleL, speed, 1, trajL.tImpact);
+  const ptsR = throwPoints(rHand, angleR, speed, -1, trajR.tImpact);
+  let best = { dist: Infinity, x: CX, y: HAND_Y };
+  ptsL.forEach(pl => {
+    ptsR.forEach(pr => {
+      const d = Math.hypot(pl.x-pr.x, pl.y-pr.y);
+      if (d < best.dist) best = { dist: d, x: (pl.x+pr.x)/2, y: (pl.y+pr.y)/2 };
+    });
+  });
+  return best;
+}
+
+function simulateBallFlight(fromHand, angle, speed, restitutionFrac, g, toY) {
+  const dir = fromHand.dir;
+  const angleRad = angle * Math.PI/180;
+  const vx0 = speed * Math.cos(angleRad) * dir;
+  const vy0 = -speed * Math.sin(angleRad);
+  const dy1 = FLOOR - fromHand.y;
+  const a1 = 0.5*g, b1 = vy0, c1 = -dy1;
+  const disc1 = b1*b1 - 4*a1*c1;
+  const tImpact = (-b1 + Math.sqrt(disc1)) / (2*a1);
+  const vyAtImpact = vy0 + g*tImpact;
+  const xAtImpact = fromHand.x + vx0*tImpact;
+  const vyBounce = -vyAtImpact * restitutionFrac;
+  const vxBounce = vx0;
+  const dy2 = toY - FLOOR;
+  const a2 = 0.5*g, b2 = vyBounce, c2 = -dy2;
+  const disc2 = b2*b2 - 4*a2*c2;
+  const tCatch = disc2 >= 0 ? (-b2 + Math.sqrt(disc2)) / (2*a2) : 0.3;
+  const totalFlight = tImpact + tCatch;
+
+  function position(t) {
+    if (t <= tImpact) {
+      return { x: fromHand.x + vx0*t, y: fromHand.y + vy0*t + 0.5*g*t*t };
+    } else {
+      const t2 = t - tImpact;
+      return { x: xAtImpact + vxBounce*t2, y: Math.min(FLOOR + vyBounce*t2 + 0.5*g*t2*t2, FLOOR) };
+    }
+  }
+  return { totalFlight, position };
+}
+
+function sideForGlobalEvent(idx) { return (((idx%2)+2)%2===0) ? 'L' : 'R'; }
+function getActiveThrows(simT, beatGap, durL, durR, N) {
+  const eventIdx = Math.floor(simT / beatGap);
+  const throws = [];
+  for (let k = 0; k < N; k++) {
+    const idx = eventIdx - k;
+    const startT = idx * beatGap;
+    const side = sideForGlobalEvent(idx);
+    const dur = side === 'L' ? durL : durR;
+    const elapsed = simT - startT;
+    if (elapsed < dur) throws.push({ side, phase: elapsed/dur });
+  }
+  return throws;
+}
+function getIdleHand(simT, beatGap, N) {
+  const eventIdx = Math.floor(simT / beatGap);
+  const idleEventIdx = eventIdx - N;
+  const idleThrowSide = sideForGlobalEvent(idleEventIdx);
+  return idleThrowSide === 'L' ? 'R' : 'L';
+}
+
+let balls = null;
+let simT = 0, lastT = null;
+let trailHistory = {};
+
+function setupBalls() {
+  const N = state.numBalls;
+  const g = 980;
+  const restitutionFrac = state.restitution / 100;
+
+  const leftDist = Math.max(20, state.baseReach - state.lxIn);
+  const rightDist = state.baseReach + state.rxOut;
+  const span = leftDist + rightDist;
+
+  const lHand = { x: CX - leftDist, y: HAND_Y, dir: 1 };
+  const rHand = { x: CX + rightDist, y: HAND_Y + state.ryDrop, dir: -1 };
+
+  const angleL = solveAngleForSpeed(state.speed, span, lHand.y, rHand.y, restitutionFrac, g);
+  const angleR = solveAngleForSpeed(state.speed, span, rHand.y, lHand.y, restitutionFrac, g);
+
+  const warnBox = document.getElementById('warnBox');
+  if (!angleL || !angleR) {
+    warnBox.style.display = 'block';
+    warnBox.textContent = 'No valid trajectory at this speed for the current arm positions. Try raising launch speed.';
+    ['lAngleOut','rAngleOut','lApexOut','rApexOut'].forEach(id => document.getElementById(id).textContent = '–');
+    document.getElementById('crossXOut').textContent = '–';
+    document.getElementById('crossYOut').textContent = '–';
+    return null;
+  }
+  warnBox.style.display = 'none';
+
+  const trajInfoL = evaluateTrajectory(state.speed, angleL, lHand.y, rHand.y, restitutionFrac, g);
+  const trajInfoR = evaluateTrajectory(state.speed, angleR, rHand.y, lHand.y, restitutionFrac, g);
+
+  document.getElementById('lAngleOut').textContent = angleL.toFixed(1) + 'deg';
+  document.getElementById('rAngleOut').textContent = angleR.toFixed(1) + 'deg';
+  document.getElementById('lApexOut').textContent = Math.round(trajInfoL.apexHeight) + 'px';
+  document.getElementById('rApexOut').textContent = Math.round(trajInfoR.apexHeight) + 'px';
+
+  const crossing = findCrossing(lHand, rHand, angleL, angleR, trajInfoL, trajInfoR, state.speed);
+  const crossXOffset = Math.round(crossing.x - CX);
+  document.getElementById('crossXOut').textContent = crossXOffset === 0 ? 'center' : `${crossXOffset>0?'+':''}${crossXOffset}px (${crossXOffset>0?'right':'left'})`;
+  document.getElementById('crossYOut').textContent = Math.round(crossing.y - HAND_Y) + 'px below hand';
+
+  const flightL = simulateBallFlight(lHand, angleL, state.speed, restitutionFrac, g, rHand.y);
+  const flightR = simulateBallFlight(rHand, angleR, state.speed, restitutionFrac, g, lHand.y);
+
+  if (N === 1) {
+    return { N, lHand, rHand, crossing, soloFlightL: flightL, soloFlightR: flightR, soloCycle: flightL.totalFlight + flightR.totalFlight };
+  }
+
+  const avgFlight = (flightL.totalFlight + flightR.totalFlight) / 2;
+  const beatGap = avgFlight / (N - 1);
+
+  return { N, lHand, rHand, crossing, flightL, flightR, durL: flightL.totalFlight, durR: flightR.totalFlight, beatGap };
+}
+
+function drawJuggler() {
+  ctx.strokeStyle = colGray; ctx.lineWidth = 2; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(CX, SHOULDER_Y); ctx.lineTo(CX, SHOULDER_Y+90); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(CX, SHOULDER_Y+90); ctx.lineTo(CX-26, FLOOR); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(CX, SHOULDER_Y+90); ctx.lineTo(CX+26, FLOOR); ctx.stroke();
+  ctx.beginPath(); ctx.arc(CX, SHOULDER_Y-15, 14, 0, Math.PI*2); ctx.stroke();
+}
+function drawArms(scene) {
+  ctx.strokeStyle = colBlue; ctx.lineWidth = 3; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(CX, SHOULDER_Y); ctx.lineTo(scene.lHand.x, scene.lHand.y); ctx.stroke();
+  ctx.strokeStyle = colCoral;
+  ctx.beginPath(); ctx.moveTo(CX, SHOULDER_Y); ctx.lineTo(scene.rHand.x, scene.rHand.y); ctx.stroke();
+
+  function handMark(hx, hy, dir, col) {
+    const len = 11;
+    ctx.strokeStyle = col; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(hx - len*0.6*dir, hy - 3);
+    ctx.lineTo(hx + len*0.6*dir, hy + 3);
+    ctx.stroke();
+  }
+  handMark(scene.lHand.x, scene.lHand.y, 1, colBlue);
+  handMark(scene.rHand.x, scene.rHand.y, -1, colCoral);
+}
+function drawCrossMark(crossing, N) {
+  if (!crossing || N === 1) return;
+  const s = 7;
+  ctx.strokeStyle = colCross;
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(crossing.x - s, crossing.y - s);
+  ctx.lineTo(crossing.x + s, crossing.y + s);
+  ctx.moveTo(crossing.x + s, crossing.y - s);
+  ctx.lineTo(crossing.x - s, crossing.y + s);
+  ctx.stroke();
+}
+function drawFloor() {
+  ctx.strokeStyle = colGrayLine; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(30, FLOOR); ctx.lineTo(W-30, FLOOR); ctx.stroke();
+}
+
+function frame(ts) {
+  if (!lastT) lastT = ts;
+  const dt = Math.min((ts-lastT)/1000, 0.05);
+  lastT = ts;
+  if (state.playing) simT += dt;
+
+  if (!balls) balls = setupBalls();
+
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = '#faf9f6';
+  ctx.fillRect(0,0,W,H);
+  drawFloor();
+  drawJuggler();
+
+  if (!balls) { requestAnimationFrame(frame); return; }
+  drawCrossMark(balls.crossing, balls.N);
+  drawArms(balls);
+
+  if (balls.N === 1) {
+    let t = simT % balls.soloCycle;
+    let pos, color;
+    if (t <= balls.soloFlightL.totalFlight) {
+      pos = balls.soloFlightL.position(t);
+      color = colBlue;
+    } else {
+      pos = balls.soloFlightR.position(t - balls.soloFlightL.totalFlight);
+      color = colCoral;
+    }
+    drawBall(pos, color, 0);
+  } else {
+    const throws = getActiveThrows(simT, balls.beatGap, balls.durL, balls.durR, balls.N);
+    throws.forEach((th, idx) => {
+      const flight = th.side === 'L' ? balls.flightL : balls.flightR;
+      const color = th.side === 'L' ? colBlue : colCoral;
+      const t = th.phase * flight.totalFlight;
+      const pos = flight.position(t);
+      drawBall(pos, color, idx);
+    });
+
+    const idleHand = getIdleHand(simT, balls.beatGap, balls.N);
+    const idleHandObj = idleHand === 'L' ? balls.lHand : balls.rHand;
+    const idleColor = idleHand === 'L' ? colBlue : colCoral;
+    drawBall({x: idleHandObj.x, y: idleHandObj.y}, idleColor, 'idle');
+  }
+
+  requestAnimationFrame(frame);
+}
+
+function drawBall(pos, color, idx) {
+  if (state.showTrails && idx !== 'idle') {
+    if (!trailHistory[idx]) trailHistory[idx] = [];
+    trailHistory[idx].push({x:pos.x, y:pos.y});
+    if (trailHistory[idx].length > 14) trailHistory[idx].shift();
+    trailHistory[idx].forEach((pt, ti) => {
+      const a = (ti/trailHistory[idx].length) * 0.25;
+      ctx.beginPath(); ctx.arc(pt.x, pt.y, 6, 0, Math.PI*2);
+      ctx.fillStyle = color + Math.round(a*255).toString(16).padStart(2,'0');
+      ctx.fill();
+    });
+  }
+  if (pos.y > FLOOR - 8) {
+    ctx.beginPath(); ctx.ellipse(pos.x, FLOOR, 12, 3, 0, 0, Math.PI*2);
+    ctx.fillStyle = color + '50'; ctx.fill();
+  }
+  ctx.beginPath(); ctx.arc(pos.x, pos.y, 10, 0, Math.PI*2);
+  ctx.fillStyle = color; ctx.fill();
+  ctx.beginPath(); ctx.arc(pos.x-3, pos.y-3, 3, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fill();
+}
+
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
